@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Snippet Snap Pro",
+  "version": "1.0",
+  "description": "Save code snippets with syntax highlighting",
+  "permissions": ["storage", "contextMenus", "notifications"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.svg",
+      "48": "icon48.svg",
+      "128": "icon128.svg"
+    }
+  },
+  "icons": {
+    "16": "icon16.svg",
+    "48": "icon48.svg",
+    "128": "icon128.svg"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["logo.svg", "icon16.svg", "icon48.svg", "icon128.svg", "context-menu-icon.svg", "favicon.svg"],
+      "matches": []
+    }
+  ]
+}

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <title>Snippet Snap Pro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      width: 420px; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      padding: 0;
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    
+    h3 { 
+      color: #64b5f6;
+      border-bottom: 2px solid #1976d2;
+      padding: 16px 15px;
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+      background: linear-gradient(90deg, rgba(25, 118, 210, 0.1) 0%, transparent 100%);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    .logo { width: 28px; height: 28px; filter: drop-shadow(0 2px 4px rgba(100, 181, 246, 0.4)); }
+    
+    #list {
+      padding: 12px 15px;
+      max-height: 450px;
+      overflow-y: auto;
+    }
+    
+    #list::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #list::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+    }
+    
+    #list::-webkit-scrollbar-thumb {
+      background: rgba(100, 181, 246, 0.4);
+      border-radius: 10px;
+    }
+    
+    #list::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 181, 246, 0.6);
+    }
+    
+    .empty-state {
+      color: #888;
+      text-align: center;
+      padding: 60px 20px;
+      font-size: 14px;
+    }
+    
+    .snippet-card { 
+      background: linear-gradient(135deg, #1e1e3f 0%, #2d2d5f 100%);
+      border: 1px solid rgba(100, 181, 246, 0.2);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s ease;
+      animation: slideInUp 0.4s ease;
+    }
+    
+    @keyframes slideInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .snippet-card:hover {
+      border-color: rgba(100, 181, 246, 0.5);
+      box-shadow: 0 6px 16px rgba(100, 181, 246, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    small { 
+      font-size: 11px; 
+      color: #a0a0c0;
+      display: block; 
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    pre { 
+      background: #0a0a15;
+      color: #4ade80;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      overflow-x: auto; 
+      white-space: pre-wrap; 
+      word-break: break-all;
+      border-left: 3px solid #1976d2;
+      margin: 8px 0;
+      line-height: 1.4;
+    }
+    
+    .btn-group { 
+      display: flex; 
+      gap: 8px; 
+      margin-top: 10px;
+    }
+    
+    button { 
+      flex: 1; 
+      padding: 8px 12px;
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-size: 12px; 
+      font-weight: 600;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    button:active {
+      transform: scale(0.95);
+    }
+    
+    .copy-btn { 
+      background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+      color: white;
+      box-shadow: 0 4px 8px rgba(25, 118, 210, 0.3);
+    }
+    
+    .copy-btn:hover {
+      background: linear-gradient(135deg, #1e88e5 0%, #1976d2 100%);
+      box-shadow: 0 6px 12px rgba(25, 118, 210, 0.4);
+    }
+    
+    .delete-btn { 
+      background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+      color: white;
+      font-weight: bold;
+      box-shadow: 0 4px 8px rgba(211, 47, 47, 0.3);
+    }
+    
+    .delete-btn:hover {
+      background: linear-gradient(135deg, #e53935 0%, #d32f2f 100%);
+      box-shadow: 0 6px 12px rgba(211, 47, 47, 0.4);
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 16px rgba(74, 222, 128, 0.4);
+      animation: slideIn 0.3s ease-in-out forwards;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      letter-spacing: 0.3px;
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(100px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <h3>
+    <img src="logo.svg" class="logo" alt="logo"/>
+    Snippet Snap Pro
+  </h3>
+  <div id="list"></div>
+  <div id="toast"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -84,7 +84,13 @@ function getElementInfo(element) {
 function handleMouseOver(e) {
   if (!inspectorActive) return;
   
-  const element = e.target;
+  let element = e.target;
+  
+  // If target is a text node, get the parent element
+  if (element.nodeType === 3) {
+    element = element.parentElement;
+  }
+  
   if (!element || element === overlay || element === document.body || element === document.documentElement) return;
   
   try {
@@ -94,8 +100,9 @@ function handleMouseOver(e) {
     
     element.classList.add('snippet-snap-highlight');
     highlightElement = element;
+    console.log('[Snippet Snap] Hovering over:', element.tagName, element.className);
   } catch (error) {
-    console.error('Error in handleMouseOver:', error);
+    console.error('[Snippet Snap] Error in handleMouseOver:', error);
   }
 }
 
@@ -103,12 +110,18 @@ function handleMouseOut(e) {
   if (!inspectorActive) return;
   
   try {
-    const element = e.target;
+    let element = e.target;
+    
+    // If target is a text node, get the parent element
+    if (element.nodeType === 3) {
+      element = element.parentElement;
+    }
+    
     if (element) {
       element.classList.remove('snippet-snap-highlight');
     }
   } catch (error) {
-    console.error('Error in handleMouseOut:', error);
+    console.error('[Snippet Snap] Error in handleMouseOut:', error);
   }
 }
 
@@ -118,16 +131,30 @@ function handleClick(e) {
   e.preventDefault();
   e.stopPropagation();
   
-  const element = e.target;
+  let element = e.target;
+  
+  // If target is a text node, get the parent element
+  if (element.nodeType === 3) {
+    element = element.parentElement;
+  }
+  
+  if (!element) {
+    console.error('[Snippet Snap] No element found for click');
+    return;
+  }
+  
+  console.log('[Snippet Snap] Element clicked:', element.tagName, element.className);
+  
   const elementInfo = getElementInfo(element);
   
-  console.log('Element clicked:', elementInfo);
+  console.log('[Snippet Snap] Element info:', elementInfo);
   
   // Save to local storage first
   try {
     localStorage.setItem('inspectorData', JSON.stringify(elementInfo));
+    console.log('[Snippet Snap] Saved to localStorage');
   } catch (error) {
-    console.error('Error saving to localStorage:', error);
+    console.error('[Snippet Snap] Error saving to localStorage:', error);
   }
   
   // Send to popup via chrome runtime
@@ -135,7 +162,11 @@ function handleClick(e) {
     action: 'elementInspected',
     element: elementInfo
   }, (response) => {
-    console.log('Response from popup:', response);
+    if (chrome.runtime.lastError) {
+      console.error('[Snippet Snap] Error sending message:', chrome.runtime.lastError);
+    } else {
+      console.log('[Snippet Snap] Message sent, response:', response);
+    }
   });
   
   stopInspector();
@@ -143,7 +174,7 @@ function handleClick(e) {
 
 function startInspector() {
   try {
-    console.log('Starting inspector...');
+    console.log('[Snippet Snap] Starting inspector...');
     inspectorActive = true;
     
     // Append overlay if not already in DOM
@@ -151,12 +182,14 @@ function startInspector() {
       try {
         document.body.appendChild(overlay);
         overlayAdded = true;
+        console.log('[Snippet Snap] Overlay appended to body');
       } catch (error) {
-        console.error('Error appending overlay:', error);
+        console.error('[Snippet Snap] Error appending overlay:', error);
         // Try alternate approach
         if (document.documentElement) {
           document.documentElement.appendChild(overlay);
           overlayAdded = true;
+          console.log('[Snippet Snap] Overlay appended to documentElement');
         }
       }
     }
@@ -166,19 +199,19 @@ function startInspector() {
       overlay.style.pointerEvents = 'auto';
     }
     
-    // Add listeners with proper binding
+    // Add listeners - use capture phase for mouseover to catch all elements
     document.addEventListener('mouseover', handleMouseOver, true);
     document.addEventListener('click', handleClick, true);
     
-    console.log('Inspector started!');
+    console.log('[Snippet Snap] Inspector started! Ready to inspect elements.');
   } catch (error) {
-    console.error('Error starting inspector:', error);
+    console.error('[Snippet Snap] Error starting inspector:', error);
   }
 }
 
 function stopInspector() {
   try {
-    console.log('Stopping inspector...');
+    console.log('[Snippet Snap] Stopping inspector...');
     inspectorActive = false;
     
     if (overlay) {
@@ -195,15 +228,15 @@ function stopInspector() {
     document.removeEventListener('mouseover', handleMouseOver, true);
     document.removeEventListener('click', handleClick, true);
     
-    console.log('Inspector stopped!');
+    console.log('[Snippet Snap] Inspector stopped!');
   } catch (error) {
-    console.error('Error stopping inspector:', error);
+    console.error('[Snippet Snap] Error stopping inspector:', error);
   }
 }
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Content script received message:', request);
+  console.log('[Snippet Snap] Content script received message:', request);
   
   if (request.action === 'startInspecting') {
     startInspector();

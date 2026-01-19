@@ -195,8 +195,22 @@ function startInspecting() {
   
   // Send message to content script to start hover detection
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      console.error('No active tab found');
+      showToast('❌ No active tab found');
+      stopInspecting();
+      return;
+    }
+    
     chrome.tabs.sendMessage(tabs[0].id, {action: 'startInspecting'}, (response) => {
-      console.log('Inspector started on page');
+      if (chrome.runtime.lastError) {
+        console.error('Error:', chrome.runtime.lastError.message);
+        showToast('❌ Inspector not available on this page');
+        stopInspecting();
+      } else {
+        console.log('Inspector started on page');
+        showToast('✨ Inspector activated! Hover over elements...');
+      }
     });
   });
 }
@@ -208,8 +222,12 @@ function stopInspecting() {
   
   // Send message to content script to stop hover detection
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+    if (!tabs || tabs.length === 0) return;
+    
     chrome.tabs.sendMessage(tabs[0].id, {action: 'stopInspecting'}, (response) => {
-      console.log('Inspector stopped on page');
+      if (!chrome.runtime.lastError) {
+        console.log('Inspector stopped on page');
+      }
     });
   });
 }
@@ -235,6 +253,20 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     // Add active class to clicked tab
     e.target.classList.add('active');
     document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Show initial message if switching to inspector tab
+    if (tabName === 'inspector') {
+      const inspectorContent = document.getElementById('inspector-content');
+      if (!inspectorContent.innerHTML.trim()) {
+        inspectorContent.innerHTML = `
+          <div class="inspector-hint" style="margin-top: 30px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
+            <div style="margin-bottom: 10px;">Click the Inspector button to activate element inspection</div>
+            <div style="font-size: 12px; color: #64a3b8;">Hover over website elements to see their CSS properties</div>
+          </div>
+        `;
+      }
+    }
   });
 });
 
@@ -243,8 +275,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'elementInspected') {
     // Element info received from content script
     console.log('Element inspected:', request.element);
+    
+    // Switch to inspector tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-tab="inspector"]').classList.add('active');
+    document.getElementById('inspector-tab').classList.add('active');
+    
+    // Display the CSS in inspector
+    const inspectorContent = document.getElementById('inspector-content');
+    const element = request.element;
+    
+    let htmlContent = `
+      <div style="margin-bottom: 10px;">
+        <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag}&gt;</span>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.class || 'N/A'}</span>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'N/A'}</span>
+      </div>
+      <div style="margin-bottom: 10px; color: #94a3b8; font-size: 11px;">
+        <strong style="color: #64b5f6;">Text Content:</strong> ${element.text.substring(0, 50) || 'N/A'}
+      </div>
+      <div class="css-display">
+    `;
+    
+    for (const [key, value] of Object.entries(element.css)) {
+      if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
+        htmlContent += `
+          <div class="css-property">
+            <span class="css-key">${key}:</span>
+            <span class="css-value">${value}</span>
+          </div>
+        `;
+      }
+    }
+    
+    htmlContent += `
+      </div>
+      <div class="inspector-hint">
+        💡 Inspector is now active. Hover over elements on the page to inspect!
+      </div>
+    `;
+    
+    inspectorContent.innerHTML = htmlContent;
     sendResponse({status: 'received'});
   }
+  return true;
 });
 
 loadSnippets();

@@ -16,12 +16,13 @@ highlightStyle.textContent = `
     right: 0;
     bottom: 0;
     cursor: crosshair;
-    z-index: 999999;
+    z-index: 999998;
+    pointer-events: none;
   }
 `;
 document.head.appendChild(highlightStyle);
 
-// Create overlay
+// Create overlay but don't append yet
 const overlay = document.createElement('div');
 overlay.className = 'snippet-snap-inspector-overlay';
 overlay.style.display = 'none';
@@ -57,29 +58,6 @@ function getElementInfo(element) {
   };
 }
 
-function startInspector() {
-  inspectorActive = true;
-  overlay.style.display = 'block';
-  document.body.appendChild(overlay);
-  
-  document.addEventListener('mouseover', handleMouseOver);
-  document.addEventListener('mouseout', handleMouseOut);
-  document.addEventListener('click', handleClick, true);
-}
-
-function stopInspector() {
-  inspectorActive = false;
-  overlay.style.display = 'none';
-  
-  if (highlightElement) {
-    highlightElement.classList.remove('snippet-snap-highlight');
-  }
-  
-  document.removeEventListener('mouseover', handleMouseOver);
-  document.removeEventListener('mouseout', handleMouseOut);
-  document.removeEventListener('click', handleClick, true);
-}
-
 function handleMouseOver(e) {
   if (!inspectorActive) return;
   
@@ -110,17 +88,59 @@ function handleClick(e) {
   const element = e.target;
   const elementInfo = getElementInfo(element);
   
+  console.log('Element clicked:', elementInfo);
+  
   // Send to popup
   chrome.runtime.sendMessage({
     action: 'elementInspected',
     element: elementInfo
+  }, (response) => {
+    console.log('Response from popup:', response);
   });
   
   stopInspector();
 }
 
+function startInspector() {
+  console.log('Starting inspector...');
+  inspectorActive = true;
+  
+  // Append overlay if not already in DOM
+  if (!overlay.parentElement) {
+    document.documentElement.appendChild(overlay);
+  }
+  overlay.style.display = 'block';
+  overlay.style.pointerEvents = 'auto';
+  
+  // Add listeners with proper binding
+  document.addEventListener('mouseover', handleMouseOver, true);
+  document.addEventListener('click', handleClick, true);
+  
+  console.log('Inspector started!');
+}
+
+function stopInspector() {
+  console.log('Stopping inspector...');
+  inspectorActive = false;
+  overlay.style.pointerEvents = 'none';
+  overlay.style.display = 'none';
+  
+  if (highlightElement) {
+    highlightElement.classList.remove('snippet-snap-highlight');
+    highlightElement = null;
+  }
+  
+  // Remove listeners
+  document.removeEventListener('mouseover', handleMouseOver, true);
+  document.removeEventListener('click', handleClick, true);
+  
+  console.log('Inspector stopped!');
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content script received message:', request);
+  
   if (request.action === 'startInspecting') {
     startInspector();
     sendResponse({status: 'started'});

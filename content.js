@@ -4,6 +4,39 @@ let overlayAdded = false;
 let tooltipElement = null;
 let currentInspectingElement = null;
 
+// Named functions for event listeners (so we can remove them later)
+const mousemoveHandler = (e) => {
+  if (!inspectorActive) return;
+  
+  // Get element under mouse
+  const elementUnderMouse = document.elementFromPoint(e.clientX, e.clientY);
+  
+  if (elementUnderMouse && elementUnderMouse !== highlightElement && 
+      elementUnderMouse !== overlay && elementUnderMouse !== document.body && 
+      elementUnderMouse !== document.documentElement &&
+      !tooltipElement?.contains(elementUnderMouse)) {
+    
+    try {
+      if (highlightElement && highlightElement !== elementUnderMouse) {
+        try {
+          highlightElement.classList.remove('snippet-snap-highlight');
+        } catch (e) {}
+      }
+      
+      elementUnderMouse.classList.add('snippet-snap-highlight');
+      highlightElement = elementUnderMouse;
+      currentInspectingElement = elementUnderMouse;
+      
+      const elementInfo = getElementInfo(elementUnderMouse);
+      if (elementInfo) {
+        createTooltip(elementUnderMouse, elementInfo);
+      }
+    } catch (error) {
+      console.error('[Snippet Snap] Error in mousemove handler:', error);
+    }
+  }
+};
+
 console.log('[Snippet Snap] Content script loaded');
 
 // Wait for document to be ready, then add styles
@@ -307,9 +340,18 @@ function handleMouseOver(e) {
   
   if (!element || element === overlay || element === document.body || element === document.documentElement) return;
   
+  // Skip if hovering over tooltip
+  if (tooltipElement && (tooltipElement === element || tooltipElement.contains(element))) {
+    return;
+  }
+  
   try {
     if (highlightElement && highlightElement !== element) {
-      highlightElement.classList.remove('snippet-snap-highlight');
+      try {
+        highlightElement.classList.remove('snippet-snap-highlight');
+      } catch (e) {
+        // Element might be removed from DOM
+      }
     }
     
     element.classList.add('snippet-snap-highlight');
@@ -320,9 +362,9 @@ function handleMouseOver(e) {
     const elementInfo = getElementInfo(element);
     if (elementInfo) {
       createTooltip(element, elementInfo);
+      console.log('[Snippet Snap] Tooltip created for:', element.tagName);
     }
     
-    console.log('[Snippet Snap] Hovering over:', element.tagName, element.className);
   } catch (error) {
     console.error('[Snippet Snap] Error in handleMouseOver:', error);
   }
@@ -453,6 +495,7 @@ function startInspector() {
     document.addEventListener('mouseover', handleMouseOver, true);
     document.addEventListener('mouseout', handleMouseOut, true);
     document.addEventListener('click', handleClick, true);
+    document.addEventListener('mousemove', mousemoveHandler, true);
     
     console.log('[Snippet Snap] Inspector started! Ready to inspect elements.');
   } catch (error) {
@@ -482,6 +525,7 @@ function stopInspector() {
     document.removeEventListener('mouseover', handleMouseOver, true);
     document.removeEventListener('mouseout', handleMouseOut, true);
     document.removeEventListener('click', handleClick, true);
+    document.removeEventListener('mousemove', mousemoveHandler, true);
     
     console.log('[Snippet Snap] Inspector stopped!');
   } catch (error) {

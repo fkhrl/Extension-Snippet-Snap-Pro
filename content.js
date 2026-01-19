@@ -1,39 +1,58 @@
 let inspectorActive = false;
 let highlightElement = null;
+let overlayAdded = false;
 
-// Create highlight overlay
-const highlightStyle = document.createElement('style');
-highlightStyle.textContent = `
-  .snippet-snap-highlight {
-    outline: 2px solid #61dafb !important;
-    background-color: rgba(97, 218, 251, 0.1) !important;
+// Wait for document to be ready, then add styles
+function setupInspector() {
+  try {
+    // Create highlight overlay styles
+    const highlightStyle = document.createElement('style');
+    highlightStyle.textContent = `
+      .snippet-snap-highlight {
+        outline: 2px solid #61dafb !important;
+        background-color: rgba(97, 218, 251, 0.1) !important;
+      }
+      
+      .snippet-snap-inspector-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        cursor: crosshair;
+        z-index: 999998;
+      }
+    `;
+    
+    if (document.head) {
+      document.head.appendChild(highlightStyle);
+    } else if (document.documentElement) {
+      document.documentElement.appendChild(highlightStyle);
+    }
+  } catch (error) {
+    console.error('Error setting up inspector styles:', error);
   }
-  
-  .snippet-snap-inspector-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    cursor: crosshair;
-    z-index: 999998;
-    pointer-events: none;
-  }
-`;
-document.head.appendChild(highlightStyle);
+}
 
 // Create overlay but don't append yet
 const overlay = document.createElement('div');
 overlay.className = 'snippet-snap-inspector-overlay';
 overlay.style.display = 'none';
 
+// Setup inspector when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupInspector);
+} else {
+  setupInspector();
+}
+
 function getElementInfo(element) {
   const styles = window.getComputedStyle(element);
   return {
     tag: element.tagName.toLowerCase(),
-    class: element.className,
-    id: element.id,
-    text: element.innerText?.substring(0, 100) || '',
+    class: element.className || '',
+    id: element.id || '',
+    text: (element.innerText || element.textContent || '').substring(0, 100),
     css: {
       color: styles.color,
       backgroundColor: styles.backgroundColor,
@@ -62,21 +81,31 @@ function handleMouseOver(e) {
   if (!inspectorActive) return;
   
   const element = e.target;
-  if (element === overlay || element === document.body || element === document.documentElement) return;
+  if (!element || element === overlay || element === document.body || element === document.documentElement) return;
   
-  if (highlightElement) {
-    highlightElement.classList.remove('snippet-snap-highlight');
+  try {
+    if (highlightElement && highlightElement !== element) {
+      highlightElement.classList.remove('snippet-snap-highlight');
+    }
+    
+    element.classList.add('snippet-snap-highlight');
+    highlightElement = element;
+  } catch (error) {
+    console.error('Error in handleMouseOver:', error);
   }
-  
-  element.classList.add('snippet-snap-highlight');
-  highlightElement = element;
 }
 
 function handleMouseOut(e) {
   if (!inspectorActive) return;
   
-  const element = e.target;
-  element.classList.remove('snippet-snap-highlight');
+  try {
+    const element = e.target;
+    if (element) {
+      element.classList.remove('snippet-snap-highlight');
+    }
+  } catch (error) {
+    console.error('Error in handleMouseOut:', error);
+  }
 }
 
 function handleClick(e) {
@@ -102,39 +131,63 @@ function handleClick(e) {
 }
 
 function startInspector() {
-  console.log('Starting inspector...');
-  inspectorActive = true;
-  
-  // Append overlay if not already in DOM
-  if (!overlay.parentElement) {
-    document.documentElement.appendChild(overlay);
+  try {
+    console.log('Starting inspector...');
+    inspectorActive = true;
+    
+    // Append overlay if not already in DOM
+    if (!overlayAdded && overlay && document.body) {
+      try {
+        document.body.appendChild(overlay);
+        overlayAdded = true;
+      } catch (error) {
+        console.error('Error appending overlay:', error);
+        // Try alternate approach
+        if (document.documentElement) {
+          document.documentElement.appendChild(overlay);
+          overlayAdded = true;
+        }
+      }
+    }
+    
+    if (overlay) {
+      overlay.style.display = 'block';
+      overlay.style.pointerEvents = 'auto';
+    }
+    
+    // Add listeners with proper binding
+    document.addEventListener('mouseover', handleMouseOver, true);
+    document.addEventListener('click', handleClick, true);
+    
+    console.log('Inspector started!');
+  } catch (error) {
+    console.error('Error starting inspector:', error);
   }
-  overlay.style.display = 'block';
-  overlay.style.pointerEvents = 'auto';
-  
-  // Add listeners with proper binding
-  document.addEventListener('mouseover', handleMouseOver, true);
-  document.addEventListener('click', handleClick, true);
-  
-  console.log('Inspector started!');
 }
 
 function stopInspector() {
-  console.log('Stopping inspector...');
-  inspectorActive = false;
-  overlay.style.pointerEvents = 'none';
-  overlay.style.display = 'none';
-  
-  if (highlightElement) {
-    highlightElement.classList.remove('snippet-snap-highlight');
-    highlightElement = null;
+  try {
+    console.log('Stopping inspector...');
+    inspectorActive = false;
+    
+    if (overlay) {
+      overlay.style.pointerEvents = 'none';
+      overlay.style.display = 'none';
+    }
+    
+    if (highlightElement) {
+      highlightElement.classList.remove('snippet-snap-highlight');
+      highlightElement = null;
+    }
+    
+    // Remove listeners
+    document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('click', handleClick, true);
+    
+    console.log('Inspector stopped!');
+  } catch (error) {
+    console.error('Error stopping inspector:', error);
   }
-  
-  // Remove listeners
-  document.removeEventListener('mouseover', handleMouseOver, true);
-  document.removeEventListener('click', handleClick, true);
-  
-  console.log('Inspector stopped!');
 }
 
 // Listen for messages from popup

@@ -2,9 +2,13 @@ let inspectorActive = false;
 let highlightElement = null;
 let overlayAdded = false;
 
+console.log('[Snippet Snap] Content script loaded');
+
 // Wait for document to be ready, then add styles
 function setupInspector() {
   try {
+    console.log('[Snippet Snap] Setting up inspector styles...');
+    
     // Create highlight overlay styles
     const highlightStyle = document.createElement('style');
     highlightStyle.textContent = `
@@ -26,11 +30,13 @@ function setupInspector() {
     
     if (document.head) {
       document.head.appendChild(highlightStyle);
+      console.log('[Snippet Snap] Styles added to document.head');
     } else if (document.documentElement) {
       document.documentElement.appendChild(highlightStyle);
+      console.log('[Snippet Snap] Styles added to documentElement');
     }
   } catch (error) {
-    console.error('Error setting up inspector styles:', error);
+    console.error('[Snippet Snap] Error setting up inspector styles:', error);
   }
 }
 
@@ -39,12 +45,10 @@ const overlay = document.createElement('div');
 overlay.className = 'snippet-snap-inspector-overlay';
 overlay.style.display = 'none';
 
-// Setup inspector when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', setupInspector);
-} else {
-  setupInspector();
-}
+// Setup inspector immediately since we use document_end now
+setupInspector();
+
+console.log('[Snippet Snap] Inspector setup complete');
 
 function getElementInfo(element) {
   const styles = window.getComputedStyle(element);
@@ -119,7 +123,14 @@ function handleClick(e) {
   
   console.log('Element clicked:', elementInfo);
   
-  // Send to popup
+  // Save to local storage first
+  try {
+    localStorage.setItem('inspectorData', JSON.stringify(elementInfo));
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
+  
+  // Send to popup via chrome runtime
   chrome.runtime.sendMessage({
     action: 'elementInspected',
     element: elementInfo

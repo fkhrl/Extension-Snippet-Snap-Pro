@@ -234,8 +234,11 @@ function stopInspecting() {
 
 // Inspector toggle button
 document.getElementById('css-inspector-toggle').addEventListener('click', () => {
+  console.log('Inspector button clicked, current state:', isInspectorActive);
+  
   if (isInspectorActive) {
     stopInspecting();
+    showToast('🛑 Inspector deactivated');
   } else {
     startInspecting();
   }
@@ -272,38 +275,67 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Popup received message:', request);
+  
   if (request.action === 'elementInspected') {
     // Element info received from content script
     console.log('Element inspected:', request.element);
     
-    // Switch to inspector tab
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.querySelector('[data-tab="inspector"]').classList.add('active');
-    document.getElementById('inspector-tab').classList.add('active');
+    if (request.element) {
+      displayInspectorData(request.element);
+    } else {
+      console.error('No element data in request');
+    }
     
-    // Display the CSS in inspector
-    const inspectorContent = document.getElementById('inspector-content');
-    const element = request.element;
-    
-    let htmlContent = `
-      <div style="margin-bottom: 10px;">
+    sendResponse({status: 'received'});
+  }
+  return true;
+});
+
+function displayInspectorData(element) {
+  // Switch to inspector tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  
+  const inspectorTab = document.querySelector('[data-tab="inspector"]');
+  const inspectorContent = document.getElementById('inspector-content');
+  
+  if (!inspectorTab || !inspectorContent) {
+    console.error('Inspector tab or content not found');
+    return;
+  }
+  
+  inspectorTab.classList.add('active');
+  document.getElementById('inspector-tab').classList.add('active');
+  
+  let htmlContent = `
+    <div style="margin-bottom: 15px; padding: 10px; background: rgba(100, 181, 246, 0.05); border-radius: 6px;">
+      <div style="margin-bottom: 8px;">
         <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag}&gt;</span>
       </div>
-      <div style="margin-bottom: 10px;">
+      <div style="margin-bottom: 8px;">
         <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.class || 'N/A'}</span>
       </div>
-      <div style="margin-bottom: 10px;">
+      <div style="margin-bottom: 8px;">
         <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'N/A'}</span>
       </div>
-      <div style="margin-bottom: 10px; color: #94a3b8; font-size: 11px;">
-        <strong style="color: #64b5f6;">Text Content:</strong> ${element.text.substring(0, 50) || 'N/A'}
+      <div style="margin-bottom: 8px; color: #94a3b8; font-size: 12px;">
+        <strong style="color: #64b5f6;">Text:</strong> ${element.text.substring(0, 60) || 'N/A'}
       </div>
-      <div class="css-display">
-    `;
+    </div>
     
+    <div style="margin-bottom: 10px;">
+      <strong style="color: #64b5f6; font-size: 13px;">CSS Properties:</strong>
+    </div>
+    <div class="css-display">
+  `;
+  
+  let hasProperties = false;
+  
+  if (element.css) {
     for (const [key, value] of Object.entries(element.css)) {
       if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
+        hasProperties = true;
         htmlContent += `
           <div class="css-property">
             <span class="css-key">${key}:</span>
@@ -312,18 +344,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         `;
       }
     }
-    
+  }
+  
+  if (!hasProperties) {
     htmlContent += `
-      </div>
-      <div class="inspector-hint">
-        💡 Inspector is now active. Hover over elements on the page to inspect!
+      <div style="color: #94a3b8; font-size: 12px; padding: 10px; text-align: center;">
+        No CSS properties found
       </div>
     `;
-    
-    inspectorContent.innerHTML = htmlContent;
-    sendResponse({status: 'received'});
   }
-  return true;
-});
+  
+  htmlContent += `
+    </div>
+    <div class="inspector-hint">
+      💡 Click Inspector button again to inspect more elements
+    </div>
+  `;
+  
+  inspectorContent.innerHTML = htmlContent;
+  showToast('✨ Element inspected! View CSS properties in Inspector tab');
+}
 
 loadSnippets();

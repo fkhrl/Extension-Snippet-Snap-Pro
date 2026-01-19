@@ -1,6 +1,8 @@
 let inspectorActive = false;
 let highlightElement = null;
 let overlayAdded = false;
+let tooltipElement = null;
+let currentInspectingElement = null;
 
 console.log('[Snippet Snap] Content script loaded');
 
@@ -9,7 +11,7 @@ function setupInspector() {
   try {
     console.log('[Snippet Snap] Setting up inspector styles...');
     
-    // Create highlight overlay styles
+    // Create highlight overlay styles and tooltip styles
     const highlightStyle = document.createElement('style');
     highlightStyle.textContent = `
       .snippet-snap-highlight {
@@ -25,6 +27,81 @@ function setupInspector() {
         bottom: 0;
         cursor: crosshair;
         z-index: 999998;
+      }
+      
+      .snippet-snap-tooltip {
+        position: fixed;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border: 2px solid #61dafb;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        color: #4ade80;
+        z-index: 999999;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        max-width: 300px;
+        max-height: 400px;
+        overflow-y: auto;
+        pointer-events: auto;
+      }
+      
+      .snippet-snap-tooltip-header {
+        color: #64b5f6;
+        font-weight: bold;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 6px;
+      }
+      
+      .snippet-snap-css-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        padding: 2px 0;
+      }
+      
+      .snippet-snap-css-key {
+        color: #64b5f6;
+        font-weight: 600;
+      }
+      
+      .snippet-snap-css-value {
+        color: #fbbf24;
+        margin-left: 8px;
+        word-break: break-all;
+      }
+      
+      .snippet-snap-copy-btn {
+        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: bold;
+        margin-top: 8px;
+        width: 100%;
+        transition: all 0.2s ease;
+      }
+      
+      .snippet-snap-copy-btn:hover {
+        background: linear-gradient(135deg, #1e88e5 0%, #1976d2 100%);
+        box-shadow: 0 4px 8px rgba(25, 118, 210, 0.4);
+      }
+      
+      .snippet-snap-copy-btn:active {
+        transform: scale(0.98);
+      }
+      
+      .snippet-snap-tooltip::-webkit-scrollbar {
+        width: 4px;
+      }
+      
+      .snippet-snap-tooltip::-webkit-scrollbar-thumb {
+        background: rgba(100, 181, 246, 0.4);
+        border-radius: 4px;
       }
     `;
     
@@ -49,6 +126,122 @@ overlay.style.display = 'none';
 setupInspector();
 
 console.log('[Snippet Snap] Inspector setup complete');
+
+function createTooltip(element, elementInfo) {
+  try {
+    // Remove old tooltip if exists
+    if (tooltipElement && tooltipElement.parentElement) {
+      tooltipElement.remove();
+    }
+    
+    // Create new tooltip
+    tooltipElement = document.createElement('div');
+    tooltipElement.className = 'snippet-snap-tooltip';
+    
+    let content = `
+      <div class="snippet-snap-tooltip-header">
+        &lt;${elementInfo.tag}&gt;
+      </div>
+    `;
+    
+    // Add CSS properties
+    if (elementInfo.css) {
+      for (const [key, value] of Object.entries(elementInfo.css)) {
+        if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
+          content += `
+            <div class="snippet-snap-css-item">
+              <span class="snippet-snap-css-key">${key}:</span>
+              <span class="snippet-snap-css-value">${value}</span>
+            </div>
+          `;
+        }
+      }
+    }
+    
+    content += `
+      <button class="snippet-snap-copy-btn">📋 Copy CSS</button>
+    `;
+    
+    tooltipElement.innerHTML = content;
+    
+    // Position tooltip near the element
+    const rect = element.getBoundingClientRect();
+    let top = rect.bottom + 10;
+    let left = rect.left;
+    
+    // Adjust if tooltip goes off-screen
+    if (left + 300 > window.innerWidth) {
+      left = window.innerWidth - 310;
+    }
+    if (top + 400 > window.innerHeight) {
+      top = rect.top - 410;
+    }
+    
+    tooltipElement.style.top = top + 'px';
+    tooltipElement.style.left = left + 'px';
+    
+    // Add copy button event listener
+    const copyBtn = tooltipElement.querySelector('.snippet-snap-copy-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyToClipboard(elementInfo);
+      });
+    }
+    
+    document.body.appendChild(tooltipElement);
+    console.log('[Snippet Snap] Tooltip created and shown');
+    
+  } catch (error) {
+    console.error('[Snippet Snap] Error creating tooltip:', error);
+  }
+}
+
+function hideTooltip() {
+  try {
+    if (tooltipElement && tooltipElement.parentElement) {
+      tooltipElement.remove();
+      tooltipElement = null;
+      console.log('[Snippet Snap] Tooltip hidden');
+    }
+  } catch (error) {
+    console.error('[Snippet Snap] Error hiding tooltip:', error);
+  }
+}
+
+function copyToClipboard(elementInfo) {
+  try {
+    let cssText = `CSS Properties for <${elementInfo.tag}>\n\n`;
+    
+    if (elementInfo.css) {
+      for (const [key, value] of Object.entries(elementInfo.css)) {
+        if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
+          cssText += `${key}: ${value};\n`;
+        }
+      }
+    }
+    
+    navigator.clipboard.writeText(cssText).then(() => {
+      console.log('[Snippet Snap] CSS copied to clipboard');
+      
+      // Show feedback
+      if (tooltipElement) {
+        const btn = tooltipElement.querySelector('.snippet-snap-copy-btn');
+        if (btn) {
+          const originalText = btn.innerText;
+          btn.innerText = '✅ Copied!';
+          setTimeout(() => {
+            btn.innerText = originalText;
+          }, 2000);
+        }
+      }
+    }).catch(err => {
+      console.error('[Snippet Snap] Error copying to clipboard:', err);
+    });
+  } catch (error) {
+    console.error('[Snippet Snap] Error in copyToClipboard:', error);
+  }
+}
 
 function getElementInfo(element) {
   try {
@@ -106,6 +299,14 @@ function handleMouseOver(e) {
     
     element.classList.add('snippet-snap-highlight');
     highlightElement = element;
+    currentInspectingElement = element;
+    
+    // Get element info and show tooltip
+    const elementInfo = getElementInfo(element);
+    if (elementInfo) {
+      createTooltip(element, elementInfo);
+    }
+    
     console.log('[Snippet Snap] Hovering over:', element.tagName, element.className);
   } catch (error) {
     console.error('[Snippet Snap] Error in handleMouseOver:', error);
@@ -126,6 +327,9 @@ function handleMouseOut(e) {
     if (element) {
       element.classList.remove('snippet-snap-highlight');
     }
+    
+    // Hide tooltip
+    hideTooltip();
   } catch (error) {
     console.error('[Snippet Snap] Error in handleMouseOut:', error);
   }
@@ -232,6 +436,7 @@ function startInspector() {
     
     // Add listeners - use capture phase for mouseover to catch all elements
     document.addEventListener('mouseover', handleMouseOver, true);
+    document.addEventListener('mouseout', handleMouseOut, true);
     document.addEventListener('click', handleClick, true);
     
     console.log('[Snippet Snap] Inspector started! Ready to inspect elements.');
@@ -255,8 +460,12 @@ function stopInspector() {
       highlightElement = null;
     }
     
+    // Hide tooltip
+    hideTooltip();
+    
     // Remove listeners
     document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('mouseout', handleMouseOut, true);
     document.removeEventListener('click', handleClick, true);
     
     console.log('[Snippet Snap] Inspector stopped!');

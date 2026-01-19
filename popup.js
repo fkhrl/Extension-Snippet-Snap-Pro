@@ -278,23 +278,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Popup received message:', request);
   
   if (request.action === 'elementInspected') {
-    // Element info received from content script
     console.log('Element inspected:', request.element);
     
     if (request.element) {
-      displayInspectorData(request.element);
-      // Also save to extension storage
-      try {
-        chrome.storage.local.set({ 
-          lastInspectedElement: request.element 
-        }, () => {
-          console.log('Saved last inspected element to storage');
-        });
-      } catch (error) {
-        console.error('Error saving to storage:', error);
-      }
-    } else {
-      console.error('No element data in request');
+      // Also save to storage
+      chrome.storage.local.set({ 
+        lastInspectedElement: request.element 
+      }, () => {
+        console.log('Saved to storage');
+        displayInspectorData(request.element);
+      });
     }
     
     sendResponse({status: 'received'});
@@ -305,89 +298,83 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function displayInspectorData(element) {
   console.log('displayInspectorData called with:', element);
   
+  if (!element) {
+    console.error('Element is null or undefined');
+    return;
+  }
+  
   // Switch to inspector tab
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const allTabs = document.querySelectorAll('.tab-btn');
+  const allContent = document.querySelectorAll('.tab-content');
+  
+  allTabs.forEach(btn => btn.classList.remove('active'));
+  allContent.forEach(cont => cont.classList.remove('active'));
   
   const inspectorTab = document.querySelector('[data-tab="inspector"]');
   const inspectorContent = document.getElementById('inspector-content');
   
-  if (!inspectorTab || !inspectorContent) {
-    console.error('Inspector tab or content not found');
+  if (inspectorTab) inspectorTab.classList.add('active');
+  if (inspectorContent) {
+    inspectorContent.classList.add('active');
+  } else {
+    console.error('Inspector content element not found');
     return;
   }
   
-  inspectorTab.classList.add('active');
-  document.getElementById('inspector-tab').classList.add('active');
+  // Build the HTML content
+  let html = '';
   
-  if (!element) {
-    console.error('Element is null or undefined');
-    inspectorContent.innerHTML = '<div style="color: #ff6b6b; padding: 10px;">Error: No element data</div>';
-    return;
-  }
+  // Element info section
+  html += '<div style="margin-bottom: 15px; padding: 10px; background: rgba(100, 181, 246, 0.08); border-radius: 6px; border-left: 3px solid #64b5f6;">';
+  html += '<div style="margin-bottom: 6px;"><strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">' + (element.tag || 'unknown') + '</span></div>';
+  html += '<div style="margin-bottom: 6px;"><strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">' + (element.class || 'none') + '</span></div>';
+  html += '<div style="margin-bottom: 6px;"><strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">' + (element.id || 'none') + '</span></div>';
+  html += '</div>';
   
-  let htmlContent = `
-    <div style="margin-bottom: 15px; padding: 12px; background: rgba(100, 181, 246, 0.05); border-radius: 6px;">
-      <div style="margin-bottom: 10px; padding: 6px 0; border-bottom: 1px solid #334155;">
-        <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag || 'unknown'}&gt;</span>
-      </div>
-      <div style="margin-bottom: 8px;">
-        <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.class || 'none'}</span>
-      </div>
-      <div style="margin-bottom: 8px;">
-        <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'none'}</span>
-      </div>
-      <div style="color: #94a3b8; font-size: 11px;">
-        <strong style="color: #64b5f6;">Text:</strong> ${(element.text && element.text.substring(0, 80)) || 'none'}
-      </div>
-    </div>
-    
-    <div style="margin-bottom: 10px; font-weight: 600; color: #64b5f6;">CSS Properties:</div>
-    <div class="css-display">
-  `;
+  // CSS Properties header
+  html += '<div style="margin: 15px 0 10px 0; font-weight: 600; color: #64b5f6; font-size: 13px;">📋 CSS Properties</div>';
   
-  let hasProperties = false;
-  let cssCount = 0;
+  // CSS Display area
+  html += '<div class="css-display">';
   
+  let propertyCount = 0;
+  
+  // Add CSS properties
   if (element.css && typeof element.css === 'object') {
-    console.log('CSS object found, entries:', Object.entries(element.css).length);
-    console.log('First few CSS entries:', Object.entries(element.css).slice(0, 5));
+    const cssKeys = Object.keys(element.css);
+    console.log('Total CSS keys:', cssKeys.length);
     
-    for (const [key, value] of Object.entries(element.css)) {
-      // Only show properties that have meaningful values
-      if (value && value !== '' && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
-        hasProperties = true;
-        cssCount++;
-        htmlContent += `
-          <div class="css-property">
-            <span class="css-key">${key}:</span>
-            <span class="css-value">${String(value).substring(0, 100)}</span>
-          </div>
-        `;
+    for (const key of cssKeys) {
+      const value = element.css[key];
+      
+      // Filter out empty and meaningless values
+      if (value && value.toString().trim() !== '' && 
+          value !== 'normal' && value !== 'auto' && 
+          value !== 'rgba(0, 0, 0, 0)' && value !== '0px' &&
+          value !== 'visible') {
+        
+        propertyCount++;
+        const displayValue = value.toString().substring(0, 80);
+        
+        html += '<div class="css-property">';
+        html += '<span class="css-key">' + key + ':</span>';
+        html += '<span class="css-value">' + displayValue + '</span>';
+        html += '</div>';
       }
     }
-    console.log('CSS properties shown:', cssCount);
-  } else {
-    console.error('No CSS object or invalid format:', element.css);
   }
   
-  if (!hasProperties) {
-    htmlContent += `
-      <div style="color: #94a3b8; font-size: 12px; padding: 10px; text-align: center;">
-        No CSS properties found
-      </div>
-    `;
+  // If no properties found
+  if (propertyCount === 0) {
+    html += '<div style="color: #94a3b8; text-align: center; padding: 20px; font-size: 12px;">No CSS properties found</div>';
   }
   
-  htmlContent += `
-    </div>
-    <div class="inspector-hint">
-      💡 Hover over elements to inspect their CSS properties
-    </div>
-  `;
+  html += '</div>';
   
-  inspectorContent.innerHTML = htmlContent;
-  console.log('Inspector data displayed');
+  html += '<div class="inspector-hint" style="margin-top: 10px;">💡 Use the copy button in the floating tooltip when hovering over elements</div>';
+  
+  inspectorContent.innerHTML = html;
+  console.log('Inspector display updated with', propertyCount, 'CSS properties');
 }
 
 loadSnippets();

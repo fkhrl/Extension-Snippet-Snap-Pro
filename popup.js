@@ -295,86 +295,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
+// popup.js er displayInspectorData function e ektu modify:
 function displayInspectorData(element) {
-  console.log('displayInspectorData called with:', element);
-  
-  if (!element) {
-    console.error('Element is null or undefined');
-    return;
-  }
-  
-  // Switch to inspector tab
-  const allTabs = document.querySelectorAll('.tab-btn');
-  const allContent = document.querySelectorAll('.tab-content');
-  
-  allTabs.forEach(btn => btn.classList.remove('active'));
-  allContent.forEach(cont => cont.classList.remove('active'));
-  
-  const inspectorTab = document.querySelector('[data-tab="inspector"]');
-  const inspectorContent = document.getElementById('inspector-content');
-  
-  if (inspectorTab) inspectorTab.classList.add('active');
-  if (inspectorContent) {
-    inspectorContent.classList.add('active');
-  } else {
-    console.error('Inspector content element not found');
-    return;
-  }
-  
-  // Build the HTML content
-  let html = '';
-  
-  // Element info section
-  html += '<div style="margin-bottom: 15px; padding: 10px; background: rgba(100, 181, 246, 0.08); border-radius: 6px; border-left: 3px solid #64b5f6;">';
-  html += '<div style="margin-bottom: 6px;"><strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">' + (element.tag || 'unknown') + '</span></div>';
-  html += '<div style="margin-bottom: 6px;"><strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">' + (element.class || 'none') + '</span></div>';
-  html += '<div style="margin-bottom: 6px;"><strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">' + (element.id || 'none') + '</span></div>';
-  html += '</div>';
-  
-  // CSS Properties header
-  html += '<div style="margin: 15px 0 10px 0; font-weight: 600; color: #64b5f6; font-size: 13px;">📋 CSS Properties</div>';
-  
-  // CSS Display area
-  html += '<div class="css-display">';
-  
-  let propertyCount = 0;
-  
-  // Add CSS properties
-  if (element.css && typeof element.css === 'object') {
-    const cssKeys = Object.keys(element.css);
-    console.log('Total CSS keys:', cssKeys.length);
-    
-    for (const key of cssKeys) {
-      const value = element.css[key];
-      
-      // Filter out empty and meaningless values
-      if (value && value.toString().trim() !== '' && 
-          value !== 'normal' && value !== 'auto' && 
-          value !== 'rgba(0, 0, 0, 0)' && value !== '0px' &&
-          value !== 'visible') {
-        
-        propertyCount++;
-        const displayValue = value.toString().substring(0, 80);
-        
-        html += '<div class="css-property">';
-        html += '<span class="css-key">' + key + ':</span>';
-        html += '<span class="css-value">' + displayValue + '</span>';
-        html += '</div>';
-      }
+    const inspectorContent = document.getElementById('inspector-content');
+    if (!inspectorContent || !element) return;
+
+    let html = `
+        <div style="background: rgba(97, 218, 251, 0.1); padding: 10px; border-radius: 8px; border-left: 4px solid #61dafb; margin-bottom: 15px;">
+            <div style="font-size: 14px; margin-bottom: 5px;"><strong>Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag}&gt;</span></div>
+            <div style="font-size: 11px; color: #94a3b8;">Class: ${element.class || 'none'} | ID: ${element.id || 'none'}</div>
+        </div>
+        <div style="font-weight: bold; margin-bottom: 10px; color: #64b5f6;">CSS Properties:</div>
+        <div class="css-display" style="max-height: 250px; overflow-y: auto; background: #000; padding: 10px; border-radius: 5px;">
+    `;
+
+    for (const [key, value] of Object.entries(element.css)) {
+        html += `
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px;">
+                <span style="color: #64b5f6;">${key}:</span>
+                <span style="color: #fbbf24;">${value}</span>
+            </div>
+        `;
     }
-  }
-  
-  // If no properties found
-  if (propertyCount === 0) {
-    html += '<div style="color: #94a3b8; text-align: center; padding: 20px; font-size: 12px;">No CSS properties found</div>';
-  }
-  
-  html += '</div>';
-  
-  html += '<div class="inspector-hint" style="margin-top: 10px;">💡 Use the copy button in the floating tooltip when hovering over elements</div>';
-  
-  inspectorContent.innerHTML = html;
-  console.log('Inspector display updated with', propertyCount, 'CSS properties');
+
+    html += `</div><p style="font-size: 10px; color: #666; margin-top: 10px; text-align: center;">💡 Click on an element to lock its CSS here.</p>`;
+    inspectorContent.innerHTML = html;
 }
 
 loadSnippets();
@@ -387,4 +332,30 @@ chrome.storage.local.get(['lastInspectedElement'], (result) => {
     console.log('Found last inspected element:', result.lastInspectedElement);
     displayInspectorData(result.lastInspectedElement);
   }
+});
+
+// popup.js er message listener update
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'elementInspected') {
+        // Class name theke highlight class bad dewa
+        if(request.element.class) {
+            request.element.class = request.element.class.replace('snippet-snap-highlight', '').trim();
+        }
+        
+        // Storage-e save kora
+        chrome.storage.local.set({ lastInspectedElement: request.element }, () => {
+            displayInspectorData(request.element);
+        });
+    }
+    return true;
+});
+
+// Popup khullei storage theke load korbe
+document.addEventListener('DOMContentLoaded', () => {
+    chrome.storage.local.get(['lastInspectedElement'], (result) => {
+        if (result.lastInspectedElement) {
+            displayInspectorData(result.lastInspectedElement);
+        }
+    });
+    loadSnippets(); // Apnar purono function
 });

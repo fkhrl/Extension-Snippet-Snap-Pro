@@ -283,6 +283,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     if (request.element) {
       displayInspectorData(request.element);
+      // Also save to extension storage
+      try {
+        chrome.storage.local.set({ 
+          lastInspectedElement: request.element 
+        }, () => {
+          console.log('Saved last inspected element to storage');
+        });
+      } catch (error) {
+        console.error('Error saving to storage:', error);
+      }
     } else {
       console.error('No element data in request');
     }
@@ -293,6 +303,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function displayInspectorData(element) {
+  console.log('displayInspectorData called with:', element);
+  
   // Switch to inspector tab
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -308,10 +320,16 @@ function displayInspectorData(element) {
   inspectorTab.classList.add('active');
   document.getElementById('inspector-tab').classList.add('active');
   
+  if (!element) {
+    console.error('Element is null or undefined');
+    inspectorContent.innerHTML = '<div style="color: #ff6b6b; padding: 10px;">Error: No element data</div>';
+    return;
+  }
+  
   let htmlContent = `
     <div style="margin-bottom: 15px; padding: 10px; background: rgba(100, 181, 246, 0.05); border-radius: 6px;">
       <div style="margin-bottom: 8px;">
-        <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag}&gt;</span>
+        <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag || 'unknown'}&gt;</span>
       </div>
       <div style="margin-bottom: 8px;">
         <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.class || 'N/A'}</span>
@@ -320,7 +338,7 @@ function displayInspectorData(element) {
         <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'N/A'}</span>
       </div>
       <div style="margin-bottom: 8px; color: #94a3b8; font-size: 12px;">
-        <strong style="color: #64b5f6;">Text:</strong> ${element.text.substring(0, 60) || 'N/A'}
+        <strong style="color: #64b5f6;">Text:</strong> ${(element.text && element.text.substring(0, 60)) || 'N/A'}
       </div>
     </div>
     
@@ -332,7 +350,9 @@ function displayInspectorData(element) {
   
   let hasProperties = false;
   
-  if (element.css) {
+  if (element.css && typeof element.css === 'object') {
+    console.log('CSS object found, entries:', Object.entries(element.css).length);
+    
     for (const [key, value] of Object.entries(element.css)) {
       if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
         hasProperties = true;
@@ -344,6 +364,8 @@ function displayInspectorData(element) {
         `;
       }
     }
+  } else {
+    console.error('No CSS object or invalid format:', element.css);
   }
   
   if (!hasProperties) {
@@ -366,3 +388,13 @@ function displayInspectorData(element) {
 }
 
 loadSnippets();
+
+// Load last inspected element from storage when popup opens
+console.log('Popup opened, checking for saved inspector data...');
+chrome.storage.local.get(['lastInspectedElement'], (result) => {
+  console.log('Storage result:', result);
+  if (result.lastInspectedElement) {
+    console.log('Found last inspected element:', result.lastInspectedElement);
+    displayInspectorData(result.lastInspectedElement);
+  }
+});

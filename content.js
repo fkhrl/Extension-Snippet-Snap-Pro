@@ -51,34 +51,40 @@ setupInspector();
 console.log('[Snippet Snap] Inspector setup complete');
 
 function getElementInfo(element) {
-  const styles = window.getComputedStyle(element);
-  return {
-    tag: element.tagName.toLowerCase(),
-    class: element.className || '',
-    id: element.id || '',
-    text: (element.innerText || element.textContent || '').substring(0, 100),
-    css: {
-      color: styles.color,
-      backgroundColor: styles.backgroundColor,
-      fontSize: styles.fontSize,
-      fontFamily: styles.fontFamily,
-      fontWeight: styles.fontWeight,
-      padding: styles.padding,
-      margin: styles.margin,
-      width: styles.width,
-      height: styles.height,
-      border: styles.border,
-      borderRadius: styles.borderRadius,
-      display: styles.display,
-      position: styles.position,
-      textAlign: styles.textAlign,
-      lineHeight: styles.lineHeight,
-      opacity: styles.opacity,
-      transform: styles.transform,
-      boxShadow: styles.boxShadow,
-      textDecoration: styles.textDecoration,
+  try {
+    const styles = window.getComputedStyle(element);
+    
+    // Create clean object with only serializable data
+    const cssData = {};
+    const cssProps = [
+      'color', 'backgroundColor', 'fontSize', 'fontFamily', 'fontWeight',
+      'padding', 'margin', 'width', 'height', 'border', 'borderRadius',
+      'display', 'position', 'textAlign', 'lineHeight', 'opacity',
+      'transform', 'boxShadow', 'textDecoration'
+    ];
+    
+    for (const prop of cssProps) {
+      const value = styles[prop];
+      // Convert to string to ensure serializability
+      cssData[prop] = value ? String(value) : '';
     }
-  };
+    
+    const elementInfo = {
+      tag: String(element.tagName.toLowerCase()),
+      class: String(element.className || ''),
+      id: String(element.id || ''),
+      text: String((element.innerText || element.textContent || '').substring(0, 100)),
+      css: cssData
+    };
+    
+    // Verify it's JSON serializable
+    JSON.stringify(elementInfo);
+    
+    return elementInfo;
+  } catch (error) {
+    console.error('[Snippet Snap] Error getting element info:', error);
+    return null;
+  }
 }
 
 function handleMouseOver(e) {
@@ -147,9 +153,30 @@ function handleClick(e) {
   
   const elementInfo = getElementInfo(element);
   
-  console.log('[Snippet Snap] Element info:', elementInfo);
+  if (!elementInfo) {
+    console.error('[Snippet Snap] Failed to get element info');
+    return;
+  }
   
-  // Save to local storage first
+  console.log('[Snippet Snap] Element info:', elementInfo);
+  console.log('[Snippet Snap] CSS data:', elementInfo.css);
+  
+  // Save to chrome storage first (most reliable)
+  try {
+    chrome.storage.local.set({ 
+      lastInspectedElement: elementInfo 
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('[Snippet Snap] Error saving to chrome storage:', chrome.runtime.lastError);
+      } else {
+        console.log('[Snippet Snap] Saved to chrome.storage');
+      }
+    });
+  } catch (error) {
+    console.error('[Snippet Snap] Error saving to chrome storage:', error);
+  }
+  
+  // Also save to local storage as backup
   try {
     localStorage.setItem('inspectorData', JSON.stringify(elementInfo));
     console.log('[Snippet Snap] Saved to localStorage');
@@ -157,17 +184,21 @@ function handleClick(e) {
     console.error('[Snippet Snap] Error saving to localStorage:', error);
   }
   
-  // Send to popup via chrome runtime
-  chrome.runtime.sendMessage({
-    action: 'elementInspected',
-    element: elementInfo
-  }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error('[Snippet Snap] Error sending message:', chrome.runtime.lastError);
-    } else {
-      console.log('[Snippet Snap] Message sent, response:', response);
-    }
-  });
+  // Send to popup via chrome runtime (may fail if popup is closed, but that's ok)
+  try {
+    chrome.runtime.sendMessage({
+      action: 'elementInspected',
+      element: elementInfo
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[Snippet Snap] Popup not open, data saved to storage instead');
+      } else {
+        console.log('[Snippet Snap] Message sent to popup');
+      }
+    });
+  } catch (error) {
+    console.error('[Snippet Snap] Error sending message:', error);
+  }
   
   stopInspector();
 }

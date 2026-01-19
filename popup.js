@@ -119,4 +119,132 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+// CSS Inspector Functionality
+let isInspectorActive = false;
+let inspectedElement = null;
+
+function extractCSSProperties(element) {
+  const styles = window.getComputedStyle(element);
+  const cssProps = {
+    'color': styles.color,
+    'background-color': styles.backgroundColor,
+    'font-size': styles.fontSize,
+    'font-family': styles.fontFamily,
+    'font-weight': styles.fontWeight,
+    'padding': styles.padding,
+    'margin': styles.margin,
+    'width': styles.width,
+    'height': styles.height,
+    'border': styles.border,
+    'border-radius': styles.borderRadius,
+    'display': styles.display,
+    'position': styles.position,
+    'text-align': styles.textAlign,
+    'line-height': styles.lineHeight,
+    'opacity': styles.opacity,
+    'transform': styles.transform,
+    'box-shadow': styles.boxShadow,
+    'text-decoration': styles.textDecoration,
+  };
+  
+  return cssProps;
+}
+
+function displayCSSForElement(element) {
+  const cssProps = extractCSSProperties(element);
+  const inspectorContent = document.getElementById('inspector-content');
+  
+  let htmlContent = `
+    <div style="margin-bottom: 10px;">
+      <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tagName.toLowerCase()}&gt;</span>
+    </div>
+    <div style="margin-bottom: 10px;">
+      <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.className || 'N/A'}</span>
+    </div>
+    <div style="margin-bottom: 10px;">
+      <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'N/A'}</span>
+    </div>
+    <div class="css-display">
+  `;
+  
+  for (const [key, value] of Object.entries(cssProps)) {
+    if (value && value !== 'normal' && value !== 'auto') {
+      htmlContent += `
+        <div class="css-property">
+          <span class="css-key">${key}:</span>
+          <span class="css-value">${value}</span>
+        </div>
+      `;
+    }
+  }
+  
+  htmlContent += `
+    </div>
+    <div class="inspector-hint">
+      💡 Click Inspector button to toggle hover detection. Hover over website elements to inspect their CSS!
+    </div>
+  `;
+  
+  inspectorContent.innerHTML = htmlContent;
+}
+
+function startInspecting() {
+  isInspectorActive = true;
+  document.getElementById('css-inspector-toggle').classList.add('active');
+  document.getElementById('css-inspector-toggle').textContent = '🔍 Inspecting...';
+  
+  // Send message to content script to start hover detection
+  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, {action: 'startInspecting'}, (response) => {
+      console.log('Inspector started on page');
+    });
+  });
+}
+
+function stopInspecting() {
+  isInspectorActive = false;
+  document.getElementById('css-inspector-toggle').classList.remove('active');
+  document.getElementById('css-inspector-toggle').textContent = '🔍 Inspector';
+  
+  // Send message to content script to stop hover detection
+  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, {action: 'stopInspecting'}, (response) => {
+      console.log('Inspector stopped on page');
+    });
+  });
+}
+
+// Inspector toggle button
+document.getElementById('css-inspector-toggle').addEventListener('click', () => {
+  if (isInspectorActive) {
+    stopInspecting();
+  } else {
+    startInspecting();
+  }
+});
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const tabName = e.target.dataset.tab;
+    
+    // Remove active class from all tabs and content
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    // Add active class to clicked tab
+    e.target.classList.add('active');
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+  });
+});
+
+// Listen for messages from content script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'elementInspected') {
+    // Element info received from content script
+    console.log('Element inspected:', request.element);
+    sendResponse({status: 'received'});
+  }
+});
+
 loadSnippets();

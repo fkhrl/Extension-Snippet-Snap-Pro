@@ -175,14 +175,141 @@
       from { opacity: 0; transform: translateX(-50%) translateY(100px); }
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
+
+    #tabs {
+      display: flex;
+      border-bottom: 2px solid #334155;
+      padding: 0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 15px;
+      background: none;
+      border: none;
+      color: #a0a0c0;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab-btn.active {
+      color: #64b5f6;
+      border-bottom-color: #1976d2;
+    }
+
+    .tab-btn:hover {
+      color: #64b5f6;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 12px 15px;
+      max-height: 450px;
+      overflow-y: auto;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    #css-inspector-toggle {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(100, 181, 246, 0.1);
+      border: 1px solid rgba(100, 181, 246, 0.3);
+      color: #64b5f6;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    #css-inspector-toggle:hover {
+      background: rgba(100, 181, 246, 0.2);
+      border-color: rgba(100, 181, 246, 0.5);
+    }
+
+    #css-inspector-toggle.active {
+      background: rgba(100, 181, 246, 0.3);
+      border-color: #64b5f6;
+    }
+
+    .css-display {
+      background: #0a0a15;
+      border: 1px solid rgba(100, 181, 246, 0.2);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #4ade80;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+
+    .css-display::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .css-display::-webkit-scrollbar-thumb {
+      background: rgba(100, 181, 246, 0.4);
+      border-radius: 4px;
+    }
+
+    .css-property {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding: 4px 0;
+    }
+
+    .css-key {
+      color: #64b5f6;
+      font-weight: 600;
+    }
+
+    .css-value {
+      color: #fbbf24;
+      margin-left: 10px;
+    }
+
+    .inspector-hint {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(100, 181, 246, 0.05);
+      border-radius: 6px;
+      border-left: 3px solid #1976d2;
+    }
   </style>
 </head>
 <body>
-  <h3>
-    <img src="logo.svg" class="logo" alt="logo"/>
-    Snippet Snap Pro
-  </h3>
-  <div id="list"></div>
+  <div style="position: relative;">
+    <h3>
+      <img src="logo.svg" class="logo" alt="logo"/>
+      Snippet Snap Pro
+    </h3>
+    <button id="css-inspector-toggle">🔍 Inspector</button>
+  </div>
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="snippets">Snippets</button>
+    <button class="tab-btn" data-tab="inspector">CSS Inspector</button>
+  </div>
+  <div class="tab-content active" id="snippets-tab">
+    <div id="list"></div>
+  </div>
+  <div class="tab-content" id="inspector-tab">
+    <div id="inspector-content"></div>
+  </div>
   <div id="toast"></div>
   <script src="popup.js"></script>
 </body>

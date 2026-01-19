@@ -327,43 +327,46 @@ function displayInspectorData(element) {
   }
   
   let htmlContent = `
-    <div style="margin-bottom: 15px; padding: 10px; background: rgba(100, 181, 246, 0.05); border-radius: 6px;">
-      <div style="margin-bottom: 8px;">
+    <div style="margin-bottom: 15px; padding: 12px; background: rgba(100, 181, 246, 0.05); border-radius: 6px;">
+      <div style="margin-bottom: 10px; padding: 6px 0; border-bottom: 1px solid #334155;">
         <strong style="color: #64b5f6;">Tag:</strong> <span style="color: #fbbf24;">&lt;${element.tag || 'unknown'}&gt;</span>
       </div>
       <div style="margin-bottom: 8px;">
-        <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.class || 'N/A'}</span>
+        <strong style="color: #64b5f6;">Class:</strong> <span style="color: #fbbf24;">${element.class || 'none'}</span>
       </div>
       <div style="margin-bottom: 8px;">
-        <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'N/A'}</span>
+        <strong style="color: #64b5f6;">ID:</strong> <span style="color: #fbbf24;">${element.id || 'none'}</span>
       </div>
-      <div style="margin-bottom: 8px; color: #94a3b8; font-size: 12px;">
-        <strong style="color: #64b5f6;">Text:</strong> ${(element.text && element.text.substring(0, 60)) || 'N/A'}
+      <div style="color: #94a3b8; font-size: 11px;">
+        <strong style="color: #64b5f6;">Text:</strong> ${(element.text && element.text.substring(0, 80)) || 'none'}
       </div>
     </div>
     
-    <div style="margin-bottom: 10px;">
-      <strong style="color: #64b5f6; font-size: 13px;">CSS Properties:</strong>
-    </div>
+    <div style="margin-bottom: 10px; font-weight: 600; color: #64b5f6;">CSS Properties:</div>
     <div class="css-display">
   `;
   
   let hasProperties = false;
+  let cssCount = 0;
   
   if (element.css && typeof element.css === 'object') {
     console.log('CSS object found, entries:', Object.entries(element.css).length);
+    console.log('First few CSS entries:', Object.entries(element.css).slice(0, 5));
     
     for (const [key, value] of Object.entries(element.css)) {
-      if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
+      // Only show properties that have meaningful values
+      if (value && value !== '' && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
         hasProperties = true;
+        cssCount++;
         htmlContent += `
           <div class="css-property">
             <span class="css-key">${key}:</span>
-            <span class="css-value">${value}</span>
+            <span class="css-value">${String(value).substring(0, 100)}</span>
           </div>
         `;
       }
     }
+    console.log('CSS properties shown:', cssCount);
   } else {
     console.error('No CSS object or invalid format:', element.css);
   }
@@ -379,12 +382,12 @@ function displayInspectorData(element) {
   htmlContent += `
     </div>
     <div class="inspector-hint">
-      💡 Click Inspector button again to inspect more elements
+      💡 Hover over elements to inspect their CSS properties
     </div>
   `;
   
   inspectorContent.innerHTML = htmlContent;
-  showToast('✨ Element inspected! View CSS properties in Inspector tab');
+  console.log('Inspector data displayed');
 }
 
 loadSnippets();

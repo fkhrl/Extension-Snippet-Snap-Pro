@@ -129,6 +129,8 @@ console.log('[Snippet Snap] Inspector setup complete');
 
 function createTooltip(element, elementInfo) {
   try {
+    console.log('[Snippet Snap] Creating tooltip for:', elementInfo.tag);
+    
     // Remove old tooltip if exists
     if (tooltipElement && tooltipElement.parentElement) {
       tooltipElement.remove();
@@ -140,22 +142,32 @@ function createTooltip(element, elementInfo) {
     
     let content = `
       <div class="snippet-snap-tooltip-header">
-        &lt;${elementInfo.tag}&gt;
+        Tag: &lt;${elementInfo.tag}&gt;
+      </div>
+      <div style="color: #94a3b8; font-size: 10px; margin-bottom: 8px; padding: 4px 0;">
+        Class: ${elementInfo.class || 'none'}<br>
+        ID: ${elementInfo.id || 'none'}
       </div>
     `;
     
     // Add CSS properties
+    let cssCount = 0;
     if (elementInfo.css) {
       for (const [key, value] of Object.entries(elementInfo.css)) {
-        if (value && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
+        if (value && value !== '' && value !== 'normal' && value !== 'auto' && value !== 'rgba(0, 0, 0, 0)') {
           content += `
             <div class="snippet-snap-css-item">
               <span class="snippet-snap-css-key">${key}:</span>
               <span class="snippet-snap-css-value">${value}</span>
             </div>
           `;
+          cssCount++;
         }
       }
+    }
+    
+    if (cssCount === 0) {
+      content += `<div style="color: #94a3b8; font-size: 10px; padding: 4px 0;">No CSS properties found</div>`;
     }
     
     content += `
@@ -172,6 +184,9 @@ function createTooltip(element, elementInfo) {
     // Adjust if tooltip goes off-screen
     if (left + 300 > window.innerWidth) {
       left = window.innerWidth - 310;
+    }
+    if (left < 10) {
+      left = 10;
     }
     if (top + 400 > window.innerHeight) {
       top = rect.top - 410;
@@ -190,7 +205,7 @@ function createTooltip(element, elementInfo) {
     }
     
     document.body.appendChild(tooltipElement);
-    console.log('[Snippet Snap] Tooltip created and shown');
+    console.log('[Snippet Snap] Tooltip created and shown at', top, left);
     
   } catch (error) {
     console.error('[Snippet Snap] Error creating tooltip:', error);

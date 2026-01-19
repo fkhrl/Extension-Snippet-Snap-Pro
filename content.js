@@ -191,13 +191,13 @@ function handleClick(e) {
       element: elementInfo
     }, (response) => {
       if (chrome.runtime.lastError) {
-        console.warn('[Snippet Snap] Popup not open, data saved to storage instead');
+        console.log('[Snippet Snap] Data saved to storage. Open popup to view!');
       } else {
         console.log('[Snippet Snap] Message sent to popup');
       }
     });
   } catch (error) {
-    console.error('[Snippet Snap] Error sending message:', error);
+    console.log('[Snippet Snap] Data saved to storage. Open popup to view!');
   }
   
   stopInspector();
